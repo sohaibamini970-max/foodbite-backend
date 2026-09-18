@@ -1,35 +1,64 @@
 require("dotenv").config();
+
 const express = require("express");
 const cors = require("cors");
-const path = require("path");
+
 const connectDB = require("./config/db");
 
 const app = express();
-app.use(cors());
+
+app.use(
+  cors({
+    origin: "*",
+  })
+);
+
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use("/uploads", express.static(path.join(__dirname, "..", "uploads")));
 
-app.use("/api/auth", require("./routes/auth"));
+app.use(
+  express.urlencoded({
+    extended: true,
+  })
+);
 
-app.get("/", (req, res) => res.json({ ok: true, service: "FoodBite API" }));
-
-// error handler
-app.use((err, req, res, next) => {
-  console.error(err);
-  res.status(500).json({ message: err.message || "Server error" });
+// Make sure MongoDB is connected before handling requests
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (error) {
+    next(error);
+  }
 });
 
-const PORT = process.env.PORT || 5000;
+// Routes
+app.use(
+  "/api/auth",
+  require("./routes/auth")
+);
 
-connectDB()
-  .then(() => {
-    app.listen(PORT, "0.0.0.0", () => {
-      console.log(`🚀 http://0.0.0.0:${PORT}`);
-    });
-  })
-  .catch((err) => {
-    console.error("FULL ERROR:", err);
-    console.error("ERROR CODE:", err.code);
-    console.error("ERROR REASON:", err.reason);
+app.use(
+  "/api/images",
+  require("./routes/images")
+);
+
+// Health check
+app.get("/", (req, res) => {
+  res.json({
+    ok: true,
+    service: "FoodBite API",
   });
+});
+
+// Error handler
+app.use((err, req, res, next) => {
+  console.error("❌ API Error:", err);
+
+  res.status(
+    err.status || 500
+  ).json({
+    message: err.message || "Server error",
+  });
+});
+
+module.exports = app;
