@@ -93,3 +93,53 @@ exports.register = async (req, res, next) => {
     next(err);
   }
 };
+
+exports.login = async (req, res, next) => {
+  try {
+    const { email, password, role } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({
+        message: "Email and password are required",
+      });
+    }
+
+    const user = await User.findOne({
+      email: email.toLowerCase(),
+    });
+
+    if (!user) {
+      return res.status(401).json({
+        message: "Invalid credentials",
+      });
+    }
+
+    const isMatch = await user.matchPassword(password);
+
+    if (!isMatch) {
+      return res.status(401).json({
+        message: "Invalid credentials",
+      });
+    }
+
+    if (role && user.role !== role) {
+      return res.status(403).json({
+        message: `This account is not a ${role} account`,
+      });
+    }
+
+    const token = signToken(user._id);
+
+    res.json({
+      message: "Login successful",
+      token,
+      user: user.toSafeJSON(),
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.me = async (req, res) => {
+  res.json({ user: req.user.toSafeJSON() });
+};
